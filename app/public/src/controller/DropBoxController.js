@@ -42,9 +42,11 @@ class DropBoxController {
             this.uploadTask(event.target.files).then(responses =>{
 
                 responses.forEach(resp =>{
-                    console.log(resp.files['input-file']);
-                });
 
+                    console.log(resp.files['input-file']);
+
+                    this.getFireBaseRef().push().set(resp.files['input-file']);
+                });
                 
                 this.modalShow(false);
             });
@@ -56,6 +58,11 @@ class DropBoxController {
         });
 
 
+    }
+
+    getFireBaseRef(){
+
+        return firebase.database().ref('files');
     }
 
     modalShow(show = true) {
