@@ -9,12 +9,14 @@ class DropBoxController {
         this.progressBarEl = this.snackModalEl.querySelector(".mc-progress-bar-fg");
         this.filenameEl = document.querySelector(".filename");
         this.timeleftEl = document.querySelector(".timeleft");
+        this.listFileEl = document.querySelector("#list-of-files-and-directories");
 
         this.connectFireBase();
         this.initEvents();
-    }   
-    connectFireBase() {        
-        
+        this.readFiles();
+    }
+    connectFireBase() {
+
         const firebaseConfig = {
             apiKey: "AIzaSyAupJy2fxcidP6SguF4ZiVbWcj7zb5mw30",
             authDomain: "dropbox-clone-13ef0.firebaseapp.com",
@@ -25,42 +27,55 @@ class DropBoxController {
             appId: "1:559956481192:web:21cacf79f060c591ee5e9d"
         };
 
-        firebase.initializeApp(firebaseConfig);        
+        firebase.initializeApp(firebaseConfig);
 
     }
 
     initEvents() {
 
         this.btnSendFileEl.addEventListener('click', event => {
+
             this.inputFilesEl.click();
         });
 
         this.inputFilesEl.addEventListener('change', event => {
 
-            console.log(event.target.files);
+            //console.log(event.target.files);
 
-            this.uploadTask(event.target.files).then(responses =>{
+            this.btnSendFileEl.disabled = true;
 
-                responses.forEach(resp =>{
+            this.uploadTask(event.target.files).then(responses => {
 
-                    console.log(resp.files['input-file']);
+                responses.forEach(resp => {
+
+                    //console.log(resp.files['input-file']);
 
                     this.getFireBaseRef().push().set(resp.files['input-file']);
                 });
-                
-                this.modalShow(false);
+                this.uploadComplete();
+
+            }).catch(err => {
+
+                this.uploadComplete();
+
+                console.error(err);
+
             });
-
             this.modalShow();
-
-            this.inputFilesEl.value = '';
 
         });
 
 
     }
 
-    getFireBaseRef(){
+    uploadComplete() {
+        this.modalShow(false);
+        this.inputFilesEl.value = '';
+        this.btnSendFileEl.disabled = true;
+
+    }
+
+    getFireBaseRef() {
 
         return firebase.database().ref('files');
     }
@@ -98,7 +113,7 @@ class DropBoxController {
 
                 ajax.onerror = event => {
 
-                    
+
 
                     reject(event);
                 }
@@ -385,12 +400,35 @@ class DropBoxController {
 
         }
     }
-    getFileView(file) {
-        return `        
-            <li>
-                ${this.getFileIconView(file)}
-                <div class="name text-center">${file.name}</div>
-         </li>       
-        `
+    getFileView(file, key) {
+
+        let li = document.createElement('li');
+
+        li.dataset.key = key;       
+
+        li.innerHTML = `         
+            ${this.getFileIconeView(file)}
+            <div class="name text-center">${file.Filename}</div>        
+        `;
+        
+        return li;
+    }
+
+    readFiles() {
+
+        this.getFireBaseRef().on('value', snapshot => {
+
+            this.listFileEl.innerHTML = '';
+
+            snapshot.forEach(snapshotItem => {
+
+                let key = snapshotItem.key;
+                let data = snapshotItem.val();
+
+                console.log(key,data);
+
+                this.listFileEl.appendChild(this.getFileView(data, key));
+            });
+        });
     }
 }
