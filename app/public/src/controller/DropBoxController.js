@@ -10,6 +10,7 @@ class DropBoxController {
         this.filenameEl = document.querySelector(".filename");
         this.timeleftEl = document.querySelector(".timeleft");
         this.listFileEl = document.querySelector("#list-of-files-and-directories");
+        this.onselectionchange = new Event('selectionchange');
 
         this.connectFireBase();
         this.initEvents();
@@ -32,6 +33,11 @@ class DropBoxController {
     }
 
     initEvents() {
+
+        this.listFileEl.addEventListener('selectionchange', e=>{
+            
+            console.log('selectionchange');
+        });
 
         this.btnSendFileEl.addEventListener('click', event => {
 
@@ -113,8 +119,6 @@ class DropBoxController {
 
                 ajax.onerror = event => {
 
-
-
                     reject(event);
                 }
                 let formData = new FormData();
@@ -149,8 +153,6 @@ class DropBoxController {
         this.timeleftEl.innerHTML = this.formatTimeToHuman(timeleft);
 
         console.log(timespand, timeleft, porcent)
-
-
     }
 
 
@@ -361,13 +363,6 @@ class DropBoxController {
                 </svg>
                     `;
                 break;
-
-
-
-
-
-
-
             default:
                 return `
                 <svg width="160" height="160" viewBox="0 0 160 160"
@@ -399,21 +394,26 @@ class DropBoxController {
                 break;
 
         }
+
     }
+
+    //pega os icones e aciona uma lista
     getFileView(file, key) {
 
-        let li = document.createElement('li');
+        let li = document.createElement("li");
 
-        li.dataset.key = key;       
+        li.dataset.key = key;
 
         li.innerHTML = `         
             ${this.getFileIconeView(file)}
-            <div class="name text-center">${file.Filename}</div>        
+            <div class="name text-center">${file.originalFilename}</div>        
         `;
-        
+        this.initEventsLi(li);
+
         return li;
     }
 
+    //faz a leitura dos arquivos
     readFiles() {
 
         this.getFireBaseRef().on('value', snapshot => {
@@ -425,10 +425,58 @@ class DropBoxController {
                 let key = snapshotItem.key;
                 let data = snapshotItem.val();
 
-                console.log(key,data);
 
                 this.listFileEl.appendChild(this.getFileView(data, key));
+                console.log(key, data);
             });
+        });
+    }
+
+    //marca o item selecionado
+    initEventsLi(li) {
+
+        li.addEventListener('click', e => {
+
+            this.listFileEl.dispatchEvent(this.onselectionchange);
+
+            if (e.shiftKey) {
+
+                let firstLi = this.listFileEl.querySelector('.selected');
+
+                if (firstLi) {
+
+                    let indexStart;
+                    let indexEnd;
+                    let lis = li.parentElement.clildNodes;
+
+                    lis.forEach((el, index) => {
+
+                        if (firstLi === el) indexStart = index;
+                        if (li === el) indexEnd = index;
+                    });
+
+
+                    let index = [indexStart, indexEnd].sort();
+
+                    lis.forEach((el, i) => {
+
+                        if (i >= index[0] && i <= index[1]) {
+                            el.classList.add('selected');
+                        }
+                    });
+
+                    return true;
+                }
+
+            }
+
+            if (!e.ctrlKey) {
+                this.listFileEl.querySelectorAll('li.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+            }
+
+            li.classList.toggle('selected');
         });
     }
 }
