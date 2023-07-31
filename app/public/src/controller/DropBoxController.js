@@ -1,8 +1,11 @@
+const { JSONParser } = require("formidable/parsers");
 
 class DropBoxController {
 
 
     constructor() {
+
+        this.currentFolder = ['Minha Pasta'];
         this.btnSendFileEl = document.querySelector("#btn-send-file");
         this.inputFilesEl = document.querySelector("#files");
         this.snackModalEl = document.querySelector("#react-snackbar-root");
@@ -11,15 +14,14 @@ class DropBoxController {
         this.timeleftEl = document.querySelector(".timeleft");
         this.listFileEl = document.querySelector("#list-of-files-and-directories");
         this.onselectionchange = new Event('selectionchange');
-
+        this.navEl = document.querySelector("#browse-location");
         this.btnNewFolder = document.querySelector("#btn-new-folder");
         this.btnDelete = document.querySelector("#btn-delete");
         this.btnRename = document.querySelector("#btn-rename");
-
-
         this.connectFireBase();
         this.initEvents();
-        this.readFiles();
+        this.openFolder();
+
     }
     connectFireBase() {
 
@@ -56,13 +58,25 @@ class DropBoxController {
 
             formData.append('path', file.path);
             formData.append('key', key);
-            promisses.push(this.ajax('/file', 'DELETE', formData));            
+            promisses.push(this.ajax('/file', 'DELETE', formData));
         });
         return Promise.all(promisses);
 
     }
 
     initEvents() {
+
+        this.btnNewFoder = addEventListener('click', e => {
+
+            let name = prompt('Nome da nova pastas:');
+            if (name) {
+                this.getFireBaseRef().push().set({
+                    name,
+                    type: 'folder',
+                    path: this.currentFolder.join('/')
+                });
+            }
+        })
 
         this.btnRename.addEventListener('click', e => {
 
@@ -87,7 +101,7 @@ class DropBoxController {
 
                 responses.forEach(response => {
 
-                    if(response.fields.key){
+                    if (response.fields.key) {
 
                         this.getFireBaseRef().child(response.fields.key).remove();
                     }
@@ -169,9 +183,13 @@ class DropBoxController {
 
     }
 
-    getFireBaseRef() {
+    getFireBaseRef(path) {
 
-        return firebase.database().ref('files');
+        if (!path) path = this.currentFolder.join('/');
+
+
+
+        return firebase.database().ref(path);
     }
 
     modalShow(show = true) {
@@ -253,7 +271,7 @@ class DropBoxController {
         this.filenameEl.innerHTML = file.originalFilename;
         this.timeleftEl.innerHTML = this.formatTimeToHuman(timeleft);
 
-        console.log(timespand, timeleft, porcent)
+        //console.log(timespand, timeleft, porcent)
     }
 
 
@@ -515,8 +533,10 @@ class DropBoxController {
         return li;
     }
 
-    //faz a leitura dos arquivos
+    //leitura dos arquivos
     readFiles() {
+
+        this.lastFolder = this.currentFolder.join('/');
 
         this.getFireBaseRef().on('value', snapshot => {
 
@@ -528,14 +548,84 @@ class DropBoxController {
 
                 let data = snapshotItem.val();
 
-                this.listFileEl.appendChild(this.getFileView(data, key));
+                if (!data.type) {
+                    this.listFileEl.appendChild(this.getFileView(data, key));
+                }
 
             });
         });
     }
 
+    openFolder() {
+
+        if (this.lastFolder) this.getFireBaseRef(this.lastFolder).off('value');
+
+        this.renderNav();
+        this.readFiles();
+
+    }
+    renderNav() {
+
+        let nav = document.createElement('nav');
+
+        let path = [];
+
+        for (let i = 0; this.currentFolder.length; i++) {
+
+            let folderName = this.currentFolder[i];
+            let span = document.createElement('span');
+
+            path.push(folderName);
+
+            if ((i + 1) === this.currentFolder.length) {
+                span.innerHTM = folderName;
+            } else {
+
+                span.className = 'breadcrumb-segment__wrapper';
+                span.innerHTML = `                
+                    <span class="ue-effect-container uee-BreadCrumbSegment-link-0">
+                        <a href="#" data-path="${path.join('/')}" class="breadcrumb-segment">${folderName}</a>
+                    </span>
+                    <svg width="24" height="24" viewBox="0 0 24 24" class="mc-icon-template-stateless" style="top: 4px; position: relative;">
+                        <title>arrow-right</title>
+                        <path d="M10.414 7.05l4.95 4.95-4.95 4.95L9 15.534 12.536 12 9 8.464z"
+                        fill="#637282" fill-rule="evenodd"></path>
+                    </svg>             
+                `
+            }
+
+            nav.appendChild(span);
+        }
+        this.navEl.innerHTML = nav.innerHTML;
+
+        this.navEl.querySelectorAll('a').forEach(a => {
+
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                this.currentFolder = a.dataset.split('/');
+                this.openFolder();
+            })
+        })
+
+    }
     //marca o item selecionado
     initEventsLi(li) {
+
+        li.addEventListener('dbclick', e => {
+            let file = JSON.parse(li.dataset.file);
+
+            switch (file.type) {
+
+                case 'folder':
+                    this.currentFolder.push(file.name);
+                    this.openFolder();
+                    break;
+
+                default:
+                    window.open('/file?path=' + file.path);
+            }
+
+        });
 
         li.addEventListener('click', e => {
 
